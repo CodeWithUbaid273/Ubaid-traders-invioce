@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ubaid Traders - Invoice System</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f2f2f2;
+      padding: 20px;
+    }
+    .container {
+      max-width: 800px;
+      margin: auto;
+      background: #fff;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    h2, h3 {
+      text-align: center;
+    }
+    input, select, button {
+      padding: 10px;
+      margin: 5px;
+      font-size: 16px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 8px;
+      text-align: center;
+    }
+    .print-btn, .export-btn {
+      margin-top: 10px;
+      padding: 10px 20px;
+      font-size: 16px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .print-btn { background: green; color: white; }
+    .export-btn { background: orange; color: white; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>Ubaid Traders - Invoice System</h2>
+    <input type="text" id="customerName" placeholder="Customer Name">
+    <select id="invoiceItem"></select>
+    <input type="number" id="invoiceQty" placeholder="Quantity">
+    <button onclick="addInvoice()">Add to Invoice</button>
+
+    <h3>Invoice for: <span id="displayCustomer"></span></h3>
+    <table id="invoiceTable">
+      <thead>
+        <tr>
+          <th>Item</th><th>Qty</th><th>Price</th><th>Total</th><th>Remove</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    <div style="text-align:right; font-size:18px;">
+      <strong>Grand Total: Rs <span id="grandTotal">0</span></strong>
+    </div>
+    <button class="print-btn" onclick="window.print()">🖨️ Print Invoice</button>
+
+    <hr>
+    <h3>🧾 Sales Report</h3>
+    <table id="salesReportTable">
+      <thead>
+        <tr>
+          <th>Date</th><th>Customer</th><th>Item</th><th>Qty</th><th>Price</th><th>Total</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    <button class="export-btn" onclick="exportCSV()">⬇️ Export to Excel (CSV)</button>
+  </div>
+
+  <script>
+    const stock = [
+      
+      { name: "Lux Soap", qty: 50, price: 90 },
+      { name: "Dove Soap", qty: 40, price: 110 },
+      { name: "Lifebuoy Soap", qty: 60, price: 85 },
+      { name: "Safeguard Soap", qty: 70, price: 95 },
+      { name: "Shampoo", qty: 80, price: 130 },
+      { name: "Fair & Lovely Cream", qty: 45, price: 150 },
+      { name: "Tibet Soap", qty: 55, price: 75 }
+    ];
+
+    let invoiceItems = [];
+    let sales = JSON.parse(localStorage.getItem("sales")) || [];
+
+    function saveStock() {
+      localStorage.setItem("stock", JSON.stringify(stock));
+    }
+
+    function renderStock() {
+      const select = document.getElementById("invoiceItem");
+      select.innerHTML = "";
+      stock.forEach((item, i) => {
+        select.innerHTML += `<option value="${i}">${item.name} (${item.qty} pcs)</option>`;
+      });
+    }
+
+    function addInvoice() {
+      const customer = document.getElementById("customerName").value.trim();
+      if (!customer) return alert("Enter customer name");
+
+      const itemIndex = document.getElementById("invoiceItem").value;
+      const qty = parseInt(document.getElementById("invoiceQty").value);
+      if (!itemIndex || isNaN(qty)) return alert("Select item & quantity");
+
+      const item = stock[itemIndex];
+      if (qty > item.qty) return alert("Not enough stock");
+
+      item.qty -= qty;
+      const total = qty * item.price;
+      invoiceItems.push({ name: item.name, qty, price: item.price, total });
+
+      sales.push({
+        date: new Date().toLocaleString(),
+        customer,
+        name: item.name,
+        qty,
+        price: item.price,
+        total
+      });
+      localStorage.setItem("sales", JSON.stringify(sales));
+
+      saveStock();
+      renderInvoice();
+      renderStock();
+      renderReport();
+      document.getElementById("invoiceQty").value = "";
+      document.getElementById("displayCustomer").textContent = customer;
+    }
+
+    function renderInvoice() {
+      const tbody = document.querySelector("#invoiceTable tbody");
+      tbody.innerHTML = "";
+      let grand = 0;
+      invoiceItems.forEach((item, i) => {
+        grand += item.total;
+        tbody.innerHTML += `
+          <tr>
+            <td>${item.name}</td><td>${item.qty}</td><td>${item.price}</td>
+            <td>${item.total}</td>
+            <td><button onclick="removeItem(${i})">❌</button></td>
+          </tr>`;
+      });
+      document.getElementById("grandTotal").textContent = grand.toFixed(2);
+    }
+
+    function removeItem(i) {
+      const item = invoiceItems[i];
+      const stockItem = stock.find(s => s.name === item.name);
+      stockItem.qty += item.qty;
+      invoiceItems.splice(i, 1);
+      renderInvoice();
+      renderStock();
+    }
+
+    function renderReport() {
+      const tbody = document.querySelector("#salesReportTable tbody");
+      tbody.innerHTML = "";
+      sales.forEach(row => {
+        tbody.innerHTML += `
+          <tr>
+            <td>${row.date}</td><td>${row.customer}</td>
+            <td>${row.name}</td><td>${row.qty}</td>
+            <td>${row.price}</td><td>${row.total}</td>
+          </tr>`;
+      });
+    }
+
+    function exportCSV() {
+      let csv = "Date,Customer,Item,Qty,Price,Total\n";
+      sales.forEach(row => {
+        csv += `${row.date},${row.customer},${row.name},${row.qty},${row.price},${row.total}\n`;
+      });
+      const blob = new Blob([csv], { type: "text/csv" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = "sales_report.csv";
+      link.click();
+    }
+
+    renderStock();
+    renderReport();
+  </script>
+</body>
+</html>
